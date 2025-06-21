@@ -122,34 +122,78 @@ def process_cameras_parallel(cancel_event, speed_callback, result_callback):
 def run_gui():
     root = tk.Tk()
     root.title("Camera SD Transfer Tool")
-    root.geometry("500x350")
+    root.geometry("600x400")
 
     status_labels = {}
     speed_labels = {}
-    max_cards = 4  # Adjust if you expect more SD cards
-
-    for idx in range(1, max_cards + 1):
-        status_labels[idx] = tk.Label(root, text=f"cam{idx}: Idle", font=("Arial", 10))
-        status_labels[idx].pack(pady=2)
-        speed_labels[idx] = tk.Label(root, text=f"cam{idx} speed: 0 MB/s", font=("Arial", 10))
-        speed_labels[idx].pack(pady=2)
+    label_frames = []
+    checkbox_vars = []
+    drive_labels = []
 
     cancel_event = threading.Event()
     transfer_thread = None
 
+    drives = []
+
+    def refresh_drives():
+        nonlocal drives
+        drives = get_removable_drives()
+        # Remove old checkboxes
+        for label in drive_labels:
+            label.destroy()
+        drive_labels.clear()
+        checkbox_vars.clear()
+        for idx, drive in enumerate(drives, start=1):
+            var = tk.BooleanVar(value=True)
+            cb = tk.Checkbutton(root, text=f"cam{idx} ({drive})", variable=var, font=("Arial", 10))
+            cb.pack(anchor='w')
+            drive_labels.append(cb)
+            checkbox_vars.append(var)
+
     def speed_callback(idx, speed):
-        speed_labels[idx].config(text=f"cam{idx} speed: {speed/1024/1024:.2f} MB/s")
+        if idx in speed_labels:
+            speed_labels[idx].config(text=f"cam{idx} speed: {speed/1024/1024:.2f} MB/s")
 
     def result_callback(idx, msg):
-        status_labels[idx].config(text=f"cam{idx}: {msg}")
+        if idx in status_labels:
+            status_labels[idx].config(text=f"cam{idx}: {msg}")
 
     def on_transfer():
-        for idx in status_labels:
-            status_labels[idx].config(text=f"cam{idx}: Transferring...")
-            speed_labels[idx].config(text=f"cam{idx} speed: 0 MB/s")
+        # Remove old labels
+        for frame in label_frames:
+            frame.destroy()
+        status_labels.clear()
+        speed_labels.clear()
+        label_frames.clear()
+
+        selected_drives = [drive for var, drive in zip(checkbox_vars, drives) if var.get()]
+        for idx, drive in enumerate(selected_drives, start=1):
+            frame = tk.Frame(root)
+            frame.pack(pady=2)
+            label_frames.append(frame)
+            status_labels[idx] = tk.Label(frame, text=f"cam{idx}: Transferring...", font=("Arial", 10))
+            status_labels[idx].pack(side=tk.LEFT)
+            speed_labels[idx] = tk.Label(frame, text=f"cam{idx} speed: 0 MB/s", font=("Arial", 10))
+            speed_labels[idx].pack(side=tk.LEFT, padx=10)
+
         cancel_event.clear()
+
         def task():
-            process_cameras_parallel(cancel_event, speed_callback, result_callback)
+            threads = []
+            for idx, drive in enumerate(selected_drives, start=1):
+                picture_dest = PICTURE_BASE_DIR / f"cam{idx}"
+                video_dest = VIDEO_BASE_DIR / f"cam{idx}"
+                t = threading.Thread(
+                    target=transfer_sd_card,
+                    args=(idx, drive, picture_dest, video_dest, cancel_event, speed_callback, result_callback)
+                )
+                threads.append(t)
+                t.start()
+            for t in threads:
+                t.join()
+            if not selected_drives:
+                result_callback(0, "No SD cards selected.")
+
         nonlocal transfer_thread
         transfer_thread = threading.Thread(target=task)
         transfer_thread.start()
@@ -160,8 +204,11 @@ def run_gui():
             status_labels[idx].config(text=f"cam{idx}: Cancelling...")
 
     tk.Label(root, text="Camera SD Transfer Utility", font=("Arial", 16)).pack(pady=10)
+    tk.Button(root, text="Refresh SD Cards", command=refresh_drives, font=("Arial", 12)).pack(pady=5)
     tk.Button(root, text="Start Transfer", command=on_transfer, font=("Arial", 12)).pack(pady=5)
     tk.Button(root, text="Cancel", command=on_cancel, font=("Arial", 12)).pack(pady=5)
+
+    refresh_drives()
     root.mainloop()
 
 
