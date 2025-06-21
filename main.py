@@ -32,19 +32,16 @@ def get_removable_drives():
     ).decode(errors='ignore')
     lines = output.strip().split("\n")[1:]
     for line in lines:
-        # Remove empty lines and skip if line is too short
         if not line.strip():
             continue
-        # Split only on first two columns, rest is volume name (may have spaces)
         parts = line.strip().split()
         if len(parts) < 2:
             continue
         device_id = parts[0]
-        # Find DriveType (should be last column)
         drive_type = parts[-1]
-        if drive_type != '2':
+        # Accept both removable (2) and local disk (3)
+        if drive_type not in ('2', '3'):
             continue
-        # Volume name is everything between device_id and drive_type
         volume_name = " ".join(parts[1:-1]) if len(parts) > 2 else ""
         drives.append((device_id, volume_name))
     return drives
@@ -180,12 +177,14 @@ def run_gui():
         speed_labels.clear()
         label_frames.clear()
 
-        selected_drives = [drive for var, (drive, _) in zip(checkbox_vars, drives) if var.get()]
-        for idx, drive in enumerate(selected_drives, start=1):
+        # Get selected drives as (drive, volname) tuples
+        selected_drives = [(drive, volname) for var, (drive, volname) in zip(checkbox_vars, drives) if var.get()]
+        for idx, (drive, volname) in enumerate(selected_drives, start=1):
             frame = tk.Frame(root)
             frame.pack(pady=2)
             label_frames.append(frame)
-            status_labels[idx] = tk.Label(frame, text=f"cam{idx}: Transferring...", font=("Arial", 10))
+            label_text = f"cam{idx}: Transferring from {drive} - {volname}" if volname else f"cam{idx}: Transferring from {drive}"
+            status_labels[idx] = tk.Label(frame, text=label_text, font=("Arial", 10))
             status_labels[idx].pack(side=tk.LEFT)
             speed_labels[idx] = tk.Label(frame, text=f"cam{idx} speed: 0 MB/s", font=("Arial", 10))
             speed_labels[idx].pack(side=tk.LEFT, padx=10)
@@ -194,7 +193,7 @@ def run_gui():
 
         def task():
             threads = []
-            for idx, drive in enumerate(selected_drives, start=1):
+            for idx, (drive, volname) in enumerate(selected_drives, start=1):
                 picture_dest = PICTURE_BASE_DIR / f"cam{idx}"
                 video_dest = VIDEO_BASE_DIR / f"cam{idx}"
                 t = threading.Thread(
