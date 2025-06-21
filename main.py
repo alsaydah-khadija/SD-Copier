@@ -28,29 +28,35 @@ VIDEO_BASE_DIR = Path("C:/Media/Videos")
 def get_removable_drives():
     drives = []
     output = subprocess.check_output(
-        'wmic logicaldisk get DeviceID,VolumeName,DriveType,Size', shell=True
+        'wmic logicaldisk get DeviceID,DriveType,Size,VolumeName', shell=True
     ).decode(errors='ignore')
     lines = output.strip().split("\n")
     if len(lines) < 2:
         return drives
-    header = lines[0]
-    deviceid_idx = header.find("DeviceID")
-    volumename_idx = header.find("VolumeName")
-    drivetype_idx = header.find("DriveType")
-    size_idx = header.find("Size")
     for line in lines[1:]:
         if not line.strip():
             continue
-        device_id = line[deviceid_idx:volumename_idx].strip()
-        volume_name = line[volumename_idx:drivetype_idx].strip()
-        drive_type = line[drivetype_idx:size_idx].strip()
-        size_str = line[size_idx:].strip()
-        # Only show removable devices (DriveType == '2')
+        # Split by whitespace, but VolumeName may be missing or have spaces, so handle carefully
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        device_id = parts[0]
+        drive_type = parts[1]
+        size_str = parts[2] if len(parts) > 2 and parts[2].isdigit() else ""
+        # VolumeName is everything after Size (may be empty)
+        volume_name = ""
+        if len(parts) > 3:
+            volume_name = " ".join(parts[3:])
+        elif len(parts) == 3 and not parts[2].isdigit():
+            volume_name = parts[2]
+            size_str = ""
         if drive_type != '2':
             continue
         try:
-            size_gb = int(size_str) / (1024 ** 3)
-            size_display = f"{size_gb:.1f} GB"
+            total, used, free = shutil.disk_usage(device_id + "\\")
+            size_gb = total / (1024 ** 3)
+            used_gb = used / (1024 ** 3)
+            size_display = f"{size_gb:.1f} GB (used: {used_gb:.1f} GB)"
         except Exception:
             size_display = "Unknown"
         drives.append((device_id, volume_name, size_display))
