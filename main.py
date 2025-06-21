@@ -178,6 +178,7 @@ def run_gui():
     main_base_dir = tk.StringVar(value="C:/Media")
     picture_base_dir = tk.StringVar(value=str(PICTURE_BASE_DIR))
     video_base_dir = tk.StringVar(value=str(VIDEO_BASE_DIR))
+    azza_reading_var = tk.StringVar(value="")
 
     def browse_main_dir():
         folder = filedialog.askdirectory(title="Select Main Base Directory")
@@ -277,7 +278,43 @@ def run_gui():
             picture_base_dir.set(str(today_folder / "Pictures"))
             video_base_dir.set(str(today_folder / "Videos"))
 
+    def set_azza():
+        azza_reading_var.set("Azza")
+        update_main_folder_with_subfolder()
+
+    def set_reading():
+        azza_reading_var.set("Reading")
+        update_main_folder_with_subfolder()
+
+    def update_main_folder_with_subfolder():
+        base = Path(main_base_dir.get())
+        sub = azza_reading_var.get()
+        if sub:
+            new_main = base / sub
+            new_main.mkdir(parents=True, exist_ok=True)
+            main_base_dir.set(str(new_main))
+            picture_base_dir.set(str(new_main / "Pictures"))
+            video_base_dir.set(str(new_main / "Videos"))
+        else:
+            # Reset to just main if nothing chosen
+            main_base_dir.set(str(base))
+            picture_base_dir.set(str(base / "Pictures"))
+            video_base_dir.set(str(base / "Videos"))
+
+    def open_main_folder():
+        folder = main_base_dir.get()
+        if os.path.exists(folder):
+            os.startfile(folder)
+        else:
+            messagebox.showerror("Error", f"Folder does not exist: {folder}")
+
     tk.Label(root, text="Camera SD Transfer Utility", font=("Arial", 16)).pack(pady=10)
+    # Azza/Reading selection
+    azza_reading_frame = tk.Frame(root)
+    azza_reading_frame.pack(pady=2)
+    tk.Label(azza_reading_frame, text="Choose Subfolder:", font=("Arial", 10)).pack(side=tk.LEFT)
+    tk.Button(azza_reading_frame, text="Azza", command=set_azza).pack(side=tk.LEFT, padx=5)
+    tk.Button(azza_reading_frame, text="Reading", command=set_reading).pack(side=tk.LEFT, padx=5)
     # Main folder selection
     main_frame = tk.Frame(root)
     main_frame.pack(pady=2)
@@ -285,6 +322,7 @@ def run_gui():
     tk.Entry(main_frame, textvariable=main_base_dir, width=40).pack(side=tk.LEFT, padx=5)
     tk.Button(main_frame, text="Browse", command=browse_main_dir).pack(side=tk.LEFT)
     tk.Button(main_frame, text="Create Today's Folder", command=create_today_folder).pack(side=tk.LEFT, padx=5)
+    tk.Button(main_frame, text="Open", command=open_main_folder).pack(side=tk.LEFT, padx=5)
     # Picture folder selection
     pic_frame = tk.Frame(root)
     pic_frame.pack(pady=2)
