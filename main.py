@@ -119,9 +119,9 @@ def transfer_sd_card(idx, drive, picture_dest, video_dest, cancel_event, speed_c
                 continue
 
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            if dest_path.exists():
-                timestamp = datetime.now().strftime("%d-%m-%Y-%H")
-                dest_path = dest_path.parent / f"{dest_path.stem}_{timestamp}{dest_path.suffix}"
+            # Always add date-hour suffix to filename
+            timestamp = datetime.now().strftime("%d-%m-%Y-%H")
+            dest_path = dest_path.parent / f"{dest_path.stem}_{timestamp}{dest_path.suffix}"
 
             shutil.copy2(source_path, dest_path)
             try:
@@ -163,7 +163,7 @@ def process_cameras_parallel(cancel_event, speed_callback, result_callback):
 def run_gui():
     root = tk.Tk()
     root.title("Camera SD Transfer Tool")
-    root.geometry("600x400")
+    root.geometry("600x600")
 
     status_labels = {}
     speed_labels = {}
@@ -267,6 +267,16 @@ def run_gui():
         for idx in status_labels:
             status_labels[idx].config(text=f"cam{idx}: Cancelling...")
 
+    def create_today_folder():
+        today_str = datetime.now().strftime("%d-%m-%Y")
+        folder = filedialog.askdirectory(title="Select Parent Directory for Today's Folder")
+        if folder:
+            today_folder = Path(folder) / today_str
+            today_folder.mkdir(parents=True, exist_ok=True)
+            main_base_dir.set(str(today_folder))
+            picture_base_dir.set(str(today_folder / "Pictures"))
+            video_base_dir.set(str(today_folder / "Videos"))
+
     tk.Label(root, text="Camera SD Transfer Utility", font=("Arial", 16)).pack(pady=10)
     # Main folder selection
     main_frame = tk.Frame(root)
@@ -274,6 +284,7 @@ def run_gui():
     tk.Label(main_frame, text="Main Folder:", font=("Arial", 10)).pack(side=tk.LEFT)
     tk.Entry(main_frame, textvariable=main_base_dir, width=40).pack(side=tk.LEFT, padx=5)
     tk.Button(main_frame, text="Browse", command=browse_main_dir).pack(side=tk.LEFT)
+    tk.Button(main_frame, text="Create Today's Folder", command=create_today_folder).pack(side=tk.LEFT, padx=5)
     # Picture folder selection
     pic_frame = tk.Frame(root)
     pic_frame.pack(pady=2)
