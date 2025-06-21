@@ -28,22 +28,32 @@ VIDEO_BASE_DIR = Path("C:/Media/Videos")
 def get_removable_drives():
     drives = []
     output = subprocess.check_output(
-        'wmic logicaldisk get DeviceID, VolumeName, DriveType', shell=True
+        'wmic logicaldisk get DeviceID,VolumeName,DriveType,Size', shell=True
     ).decode(errors='ignore')
-    lines = output.strip().split("\n")[1:]
-    for line in lines:
+    lines = output.strip().split("\n")
+    if len(lines) < 2:
+        return drives
+    header = lines[0]
+    deviceid_idx = header.find("DeviceID")
+    volumename_idx = header.find("VolumeName")
+    drivetype_idx = header.find("DriveType")
+    size_idx = header.find("Size")
+    for line in lines[1:]:
         if not line.strip():
             continue
-        parts = line.strip().split()
-        if len(parts) < 2:
+        device_id = line[deviceid_idx:volumename_idx].strip()
+        volume_name = line[volumename_idx:drivetype_idx].strip()
+        drive_type = line[drivetype_idx:size_idx].strip()
+        size_str = line[size_idx:].strip()
+        # Only show removable devices (DriveType == '2')
+        if drive_type != '2':
             continue
-        device_id = parts[0]
-        drive_type = parts[-1]
-        # Accept both removable (2) and local disk (3)
-        if drive_type not in ('2', '3'):
-            continue
-        volume_name = " ".join(parts[1:-1]) if len(parts) > 2 else ""
-        drives.append((device_id, volume_name))
+        try:
+            size_gb = int(size_str) / (1024 ** 3)
+            size_display = f"{size_gb:.1f} GB"
+        except Exception:
+            size_display = "Unknown"
+        drives.append((device_id, volume_name, size_display))
     return drives
 
 
@@ -153,9 +163,9 @@ def run_gui():
             label.destroy()
         drive_labels.clear()
         checkbox_vars.clear()
-        for idx, (drive, volname) in enumerate(drives, start=1):
+        for idx, (drive, volname, size_display) in enumerate(drives, start=1):
             var = tk.BooleanVar(value=True)
-            label_text = f"cam{idx} ({drive} - {volname})" if volname else f"cam{idx} ({drive})"
+            label_text = f"cam{idx} ({drive} - {volname} - {size_display})" if volname else f"cam{idx} ({drive} - {size_display})"
             cb = tk.Checkbutton(root, text=label_text, variable=var, font=("Arial", 10))
             cb.pack(anchor='w')
             drive_labels.append(cb)
@@ -178,7 +188,7 @@ def run_gui():
         label_frames.clear()
 
         # Get selected drives as (drive, volname) tuples
-        selected_drives = [(drive, volname) for var, (drive, volname) in zip(checkbox_vars, drives) if var.get()]
+        selected_drives = [(drive, volname) for var, (drive, volname, _) in zip(checkbox_vars, drives) if var.get()]
         for idx, (drive, volname) in enumerate(selected_drives, start=1):
             frame = tk.Frame(root)
             frame.pack(pady=2)
