@@ -82,7 +82,21 @@ def transfer_files(source_dir: Path, dest_dir: Path, extensions: set):
 
 
 def eject_drive(drive_letter):
-    subprocess.run(["powershell", "(New-Object -comObject Shell.Application).NameSpace(17).ParseName(\"{}\\\").InvokeVerb(\"Eject\")".format(drive_letter)], shell=True)
+    # Try PowerShell method first
+    try:
+        result = subprocess.run(
+            ["powershell", "-Command", f"(New-Object -comObject Shell.Application).NameSpace(17).ParseName('{drive_letter}\\').InvokeVerb('Eject')"],
+            shell=True, capture_output=True
+        )
+        # If PowerShell method fails, try mountvol as fallback
+        if result.returncode != 0:
+            subprocess.run(f"mountvol {drive_letter}: /p", shell=True)
+    except Exception as e:
+        # As a last resort, try mountvol
+        try:
+            subprocess.run(f"mountvol {drive_letter}: /p", shell=True)
+        except Exception:
+            pass
 
 
 def transfer_sd_card(idx, drive, picture_dest, video_dest, cancel_event, speed_callback, result_callback):
