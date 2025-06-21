@@ -164,6 +164,12 @@ def run_gui():
     root = tk.Tk()
     root.title("Camera SD Transfer Tool")
     root.geometry("600x600")
+    root.configure(bg="#f4f6fa")
+    style_font = ("Segoe UI", 12)
+    label_font = ("Segoe UI", 11, "bold")
+    entry_font = ("Segoe UI", 11)
+    button_font = ("Segoe UI", 11, "bold")
+    pad = {'padx': 8, 'pady': 6}
 
     status_labels = {}
     speed_labels = {}
@@ -197,7 +203,7 @@ def run_gui():
         if folder:
             video_base_dir.set(folder)
 
-    def refresh_drives():
+    def refresh_drives_root():
         nonlocal drives
         drives = get_removable_drives()
         # Remove old checkboxes
@@ -208,8 +214,8 @@ def run_gui():
         for idx, (drive, volname, size_display) in enumerate(drives, start=1):
             var = tk.BooleanVar(value=True)
             label_text = f"cam{idx} ({drive} - {volname} - {size_display})" if volname else f"cam{idx} ({drive} - {size_display})"
-            cb = tk.Checkbutton(root, text=label_text, variable=var, font=("Arial", 10))
-            cb.pack(anchor='w')
+            cb = tk.Checkbutton(root, text=label_text, variable=var, font=entry_font, bg="#f4f6fa")
+            cb.pack(anchor='w', padx=10)
             drive_labels.append(cb)
             checkbox_vars.append(var)
 
@@ -308,39 +314,61 @@ def run_gui():
         else:
             messagebox.showerror("Error", f"Folder does not exist: {folder}")
 
-    tk.Label(root, text="Camera SD Transfer Utility", font=("Arial", 16)).pack(pady=10)
-    # Azza/Reading selection
-    azza_reading_frame = tk.Frame(root)
-    azza_reading_frame.pack(pady=2)
-    tk.Label(azza_reading_frame, text="Choose Subfolder:", font=("Arial", 10)).pack(side=tk.LEFT)
-    tk.Button(azza_reading_frame, text="Azza", command=set_azza).pack(side=tk.LEFT, padx=5)
-    tk.Button(azza_reading_frame, text="Reading", command=set_reading).pack(side=tk.LEFT, padx=5)
-    # Main folder selection
-    main_frame = tk.Frame(root)
-    main_frame.pack(pady=2)
-    tk.Label(main_frame, text="Main Folder:", font=("Arial", 10)).pack(side=tk.LEFT)
-    tk.Entry(main_frame, textvariable=main_base_dir, width=40).pack(side=tk.LEFT, padx=5)
-    tk.Button(main_frame, text="Browse", command=browse_main_dir).pack(side=tk.LEFT)
-    tk.Button(main_frame, text="Create Today's Folder", command=create_today_folder).pack(side=tk.LEFT, padx=5)
-    tk.Button(main_frame, text="Open", command=open_main_folder).pack(side=tk.LEFT, padx=5)
-    # Picture folder selection
-    pic_frame = tk.Frame(root)
-    pic_frame.pack(pady=2)
-    tk.Label(pic_frame, text="Pictures Folder:", font=("Arial", 10)).pack(side=tk.LEFT)
-    tk.Entry(pic_frame, textvariable=picture_base_dir, width=40).pack(side=tk.LEFT, padx=5)
-    tk.Button(pic_frame, text="Browse", command=browse_picture_dir).pack(side=tk.LEFT)
-    # Video folder selection
-    vid_frame = tk.Frame(root)
-    vid_frame.pack(pady=2)
-    tk.Label(vid_frame, text="Videos Folder:", font=("Arial", 10)).pack(side=tk.LEFT)
-    tk.Entry(vid_frame, textvariable=video_base_dir, width=40).pack(side=tk.LEFT, padx=5)
-    tk.Button(vid_frame, text="Browse", command=browse_video_dir).pack(side=tk.LEFT)
-    # Drive selection and transfer controls
-    tk.Button(root, text="Refresh SD Cards", command=refresh_drives, font=("Arial", 12)).pack(pady=5)
-    tk.Button(root, text="Start Transfer", command=on_transfer, font=("Arial", 12)).pack(pady=5)
-    tk.Button(root, text="Cancel", command=on_cancel, font=("Arial", 12)).pack(pady=5)
+    tk.Label(root, text="📸 Camera SD Transfer Utility", font=("Segoe UI", 18, "bold"), bg="#f4f6fa", fg="#2d415a").pack(pady=12)
 
-    refresh_drives()
+    # Azza/Reading selection
+    azza_reading_frame = tk.Frame(root, bg="#f4f6fa")
+    azza_reading_frame.pack(pady=2)
+    tk.Label(azza_reading_frame, text="Choose Subfolder:", font=label_font, bg="#f4f6fa").pack(side=tk.LEFT)
+    tk.Button(azza_reading_frame, text="🟣 Azza", command=set_azza, font=button_font, bg="#e0e7ff", fg="#3b0764", relief=tk.GROOVE).pack(side=tk.LEFT, padx=5)
+    tk.Button(azza_reading_frame, text="🟢 Reading", command=set_reading, font=button_font, bg="#d1fae5", fg="#065f46", relief=tk.GROOVE).pack(side=tk.LEFT, padx=5)
+
+    # Main folder selection
+    main_frame = tk.Frame(root, bg="#f4f6fa")
+    main_frame.pack(pady=2, fill=tk.X)
+    tk.Label(main_frame, text="📁 Main Folder:", font=label_font, bg="#f4f6fa").pack(side=tk.LEFT)
+    tk.Entry(main_frame, textvariable=main_base_dir, width=36, font=entry_font).pack(side=tk.LEFT, padx=5)
+    tk.Button(main_frame, text="Browse", command=browse_main_dir, font=button_font, bg="#e0e7ff").pack(side=tk.LEFT)
+    tk.Button(main_frame, text="Create Today's Folder", command=create_today_folder, font=button_font, bg="#fef9c3").pack(side=tk.LEFT, padx=5)
+    tk.Button(main_frame, text="Open", command=open_main_folder, font=button_font, bg="#bae6fd").pack(side=tk.LEFT, padx=5)
+
+    # Picture folder selection
+    pic_frame = tk.Frame(root, bg="#f4f6fa")
+    pic_frame.pack(pady=2, fill=tk.X)
+    tk.Label(pic_frame, text="🖼️ Pictures Folder:", font=label_font, bg="#f4f6fa").pack(side=tk.LEFT)
+    tk.Entry(pic_frame, textvariable=picture_base_dir, width=36, font=entry_font).pack(side=tk.LEFT, padx=5)
+    tk.Button(pic_frame, text="Browse", command=browse_picture_dir, font=button_font, bg="#e0e7ff").pack(side=tk.LEFT)
+
+    # Video folder selection
+    vid_frame = tk.Frame(root, bg="#f4f6fa")
+    vid_frame.pack(pady=2, fill=tk.X)
+    tk.Label(vid_frame, text="🎬 Videos Folder:", font=label_font, bg="#f4f6fa").pack(side=tk.LEFT)
+    tk.Entry(vid_frame, textvariable=video_base_dir, width=36, font=entry_font).pack(side=tk.LEFT, padx=5)
+    tk.Button(vid_frame, text="Browse", command=browse_video_dir, font=button_font, bg="#e0e7ff").pack(side=tk.LEFT)
+
+    # Drive selection and transfer controls
+    drives_frame = tk.LabelFrame(root, text="Select SD Cards to Transfer", font=label_font, bg="#f4f6fa", fg="#2d415a", bd=2, relief=tk.GROOVE)
+    drives_frame.pack(pady=10, fill=tk.X, padx=10)
+    def refresh_drives_frame():
+        nonlocal drives
+        drives = get_removable_drives()
+        for label in drive_labels:
+            label.destroy()
+        drive_labels.clear()
+        checkbox_vars.clear()
+        for idx, (drive, volname, size_display) in enumerate(drives, start=1):
+            var = tk.BooleanVar(value=True)
+            label_text = f"cam{idx} ({drive} - {volname} - {size_display})" if volname else f"cam{idx} ({drive} - {size_display})"
+            cb = tk.Checkbutton(drives_frame, text=label_text, variable=var, font=entry_font, bg="#f4f6fa")
+            cb.pack(anchor='w', padx=10)
+            drive_labels.append(cb)
+            checkbox_vars.append(var)
+
+    tk.Button(root, text="🔄 Refresh SD Cards", command=refresh_drives_frame, font=button_font, bg="#fef9c3").pack(pady=5)
+    tk.Button(root, text="🚀 Start Transfer", command=on_transfer, font=button_font, bg="#bbf7d0").pack(pady=5)
+    tk.Button(root, text="⏹️ Cancel", command=on_cancel, font=button_font, bg="#fecaca").pack(pady=5)
+
+    refresh_drives_frame()
     root.mainloop()
 
 
