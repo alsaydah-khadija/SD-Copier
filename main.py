@@ -27,13 +27,26 @@ VIDEO_BASE_DIR = Path("C:/Media/Videos")
 
 def get_removable_drives():
     drives = []
-    output = subprocess.check_output("wmic logicaldisk get DeviceID, DriveType", shell=True).decode()
+    output = subprocess.check_output(
+        'wmic logicaldisk get DeviceID, VolumeName, DriveType', shell=True
+    ).decode(errors='ignore')
     lines = output.strip().split("\n")[1:]
     for line in lines:
+        # Remove empty lines and skip if line is too short
+        if not line.strip():
+            continue
+        # Split only on first two columns, rest is volume name (may have spaces)
         parts = line.strip().split()
-        if len(parts) >= 2 and parts[1] == '2':  # DriveType 2 = Removable Disk
-            device_id = parts[0]
-            drives.append(device_id)
+        if len(parts) < 2:
+            continue
+        device_id = parts[0]
+        # Find DriveType (should be last column)
+        drive_type = parts[-1]
+        if drive_type != '2':
+            continue
+        # Volume name is everything between device_id and drive_type
+        volume_name = " ".join(parts[1:-1]) if len(parts) > 2 else ""
+        drives.append((device_id, volume_name))
     return drives
 
 
@@ -143,9 +156,10 @@ def run_gui():
             label.destroy()
         drive_labels.clear()
         checkbox_vars.clear()
-        for idx, drive in enumerate(drives, start=1):
+        for idx, (drive, volname) in enumerate(drives, start=1):
             var = tk.BooleanVar(value=True)
-            cb = tk.Checkbutton(root, text=f"cam{idx} ({drive})", variable=var, font=("Arial", 10))
+            label_text = f"cam{idx} ({drive} - {volname})" if volname else f"cam{idx} ({drive})"
+            cb = tk.Checkbutton(root, text=label_text, variable=var, font=("Arial", 10))
             cb.pack(anchor='w')
             drive_labels.append(cb)
             checkbox_vars.append(var)
@@ -166,7 +180,7 @@ def run_gui():
         speed_labels.clear()
         label_frames.clear()
 
-        selected_drives = [drive for var, drive in zip(checkbox_vars, drives) if var.get()]
+        selected_drives = [drive for var, (drive, _) in zip(checkbox_vars, drives) if var.get()]
         for idx, drive in enumerate(selected_drives, start=1):
             frame = tk.Frame(root)
             frame.pack(pady=2)
