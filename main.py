@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import filedialog
 import threading
 import time
 
@@ -74,8 +75,8 @@ def transfer_files(source_dir: Path, dest_dir: Path, extensions: set):
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
 
                 if dest_path.exists():
-                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                    dest_path = dest_dir / f"{dest_path.stem}_{timestamp}{dest_path.suffix}"
+                    timestamp = datetime.now().strftime("%d-%m-%Y-%H")
+                    dest_path = dest_path.parent / f"{dest_path.stem}_{timestamp}{dest_path.suffix}"
 
                 shutil.copy2(source_path, dest_path)
                 print(f"Copied {source_path} -> {dest_path}")
@@ -119,7 +120,7 @@ def transfer_sd_card(idx, drive, picture_dest, video_dest, cancel_event, speed_c
 
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             if dest_path.exists():
-                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                timestamp = datetime.now().strftime("%d-%m-%Y-%H")
                 dest_path = dest_path.parent / f"{dest_path.stem}_{timestamp}{dest_path.suffix}"
 
             shutil.copy2(source_path, dest_path)
@@ -174,6 +175,26 @@ def run_gui():
     transfer_thread = None
 
     drives = []
+    main_base_dir = tk.StringVar(value="C:/Media")
+    picture_base_dir = tk.StringVar(value=str(PICTURE_BASE_DIR))
+    video_base_dir = tk.StringVar(value=str(VIDEO_BASE_DIR))
+
+    def browse_main_dir():
+        folder = filedialog.askdirectory(title="Select Main Base Directory")
+        if folder:
+            main_base_dir.set(folder)
+            picture_base_dir.set(str(Path(folder) / "Pictures"))
+            video_base_dir.set(str(Path(folder) / "Videos"))
+
+    def browse_picture_dir():
+        folder = filedialog.askdirectory(title="Select Picture Base Directory")
+        if folder:
+            picture_base_dir.set(folder)
+
+    def browse_video_dir():
+        folder = filedialog.askdirectory(title="Select Video Base Directory")
+        if folder:
+            video_base_dir.set(folder)
 
     def refresh_drives():
         nonlocal drives
@@ -224,8 +245,8 @@ def run_gui():
         def task():
             threads = []
             for idx, (drive, volname) in enumerate(selected_drives, start=1):
-                picture_dest = PICTURE_BASE_DIR / f"cam{idx}"
-                video_dest = VIDEO_BASE_DIR / f"cam{idx}"
+                picture_dest = Path(picture_base_dir.get()) / f"cam{idx}"
+                video_dest = Path(video_base_dir.get()) / f"cam{idx}"
                 t = threading.Thread(
                     target=transfer_sd_card,
                     args=(idx, drive, picture_dest, video_dest, cancel_event, speed_callback, result_callback)
@@ -247,6 +268,25 @@ def run_gui():
             status_labels[idx].config(text=f"cam{idx}: Cancelling...")
 
     tk.Label(root, text="Camera SD Transfer Utility", font=("Arial", 16)).pack(pady=10)
+    # Main folder selection
+    main_frame = tk.Frame(root)
+    main_frame.pack(pady=2)
+    tk.Label(main_frame, text="Main Folder:", font=("Arial", 10)).pack(side=tk.LEFT)
+    tk.Entry(main_frame, textvariable=main_base_dir, width=40).pack(side=tk.LEFT, padx=5)
+    tk.Button(main_frame, text="Browse", command=browse_main_dir).pack(side=tk.LEFT)
+    # Picture folder selection
+    pic_frame = tk.Frame(root)
+    pic_frame.pack(pady=2)
+    tk.Label(pic_frame, text="Pictures Folder:", font=("Arial", 10)).pack(side=tk.LEFT)
+    tk.Entry(pic_frame, textvariable=picture_base_dir, width=40).pack(side=tk.LEFT, padx=5)
+    tk.Button(pic_frame, text="Browse", command=browse_picture_dir).pack(side=tk.LEFT)
+    # Video folder selection
+    vid_frame = tk.Frame(root)
+    vid_frame.pack(pady=2)
+    tk.Label(vid_frame, text="Videos Folder:", font=("Arial", 10)).pack(side=tk.LEFT)
+    tk.Entry(vid_frame, textvariable=video_base_dir, width=40).pack(side=tk.LEFT, padx=5)
+    tk.Button(vid_frame, text="Browse", command=browse_video_dir).pack(side=tk.LEFT)
+    # Drive selection and transfer controls
     tk.Button(root, text="Refresh SD Cards", command=refresh_drives, font=("Arial", 12)).pack(pady=5)
     tk.Button(root, text="Start Transfer", command=on_transfer, font=("Arial", 12)).pack(pady=5)
     tk.Button(root, text="Cancel", command=on_cancel, font=("Arial", 12)).pack(pady=5)
