@@ -18,6 +18,9 @@ IMAGE_EXTENSIONS = {
 VIDEO_EXTENSIONS = {
     '.mp4', '.mov', '.avi', '.mkv', '.mxf', '.mts', '.hevc'
 }
+SOUND_EXTENSIONS = {
+    '.wav', '.mp3', '.aac', '.flac', '.ogg', '.m4a'
+}
 
 # Volume labels mapped to camera names
 CAMERA_LABELS = {
@@ -31,6 +34,7 @@ global_stats_label = None
 # Target folders
 PICTURE_BASE_DIR = Path("C:/Media/Pictures")
 VIDEO_BASE_DIR = Path("C:/Media/Videos")
+SOUND_BASE_DIR = Path("C:/Media/Sound")
 
 
 def get_removable_drives():
@@ -135,7 +139,7 @@ def format_size(num_bytes):
         return f"{num_bytes} B"
 
 
-def transfer_sd_card(idx, drive, picture_dest, video_dest, cancel_event, speed_callback, result_callback):
+def transfer_sd_card(idx, drive, picture_dest, video_dest,sound_dest, cancel_event, speed_callback, result_callback):
     total_bytes = 0
     start_time = time.time()
     found = False
@@ -150,6 +154,8 @@ def transfer_sd_card(idx, drive, picture_dest, video_dest, cancel_event, speed_c
                 dest_path = picture_dest / file
             elif ext in VIDEO_EXTENSIONS:
                 dest_path = video_dest / file
+            elif ext in SOUND_EXTENSIONS:
+                dest_path = sound_dest / file
             else:
                 continue
 
@@ -183,9 +189,10 @@ def process_cameras_parallel(cancel_event, speed_callback, result_callback):
     for idx, drive in enumerate(drives, start=1):
         picture_dest = PICTURE_BASE_DIR / f"cam{idx}"
         video_dest = VIDEO_BASE_DIR / f"cam{idx}"
+        sound_dest = SOUND_BASE_DIR / f"cam{idx}"
         t = threading.Thread(
             target=transfer_sd_card,
-            args=(idx, drive, picture_dest, video_dest, cancel_event, speed_callback, result_callback)
+            args=(idx, drive, picture_dest, video_dest, sound_dest,cancel_event, speed_callback, result_callback)
         )
         threads.append(t)
         t.start()
@@ -229,6 +236,7 @@ def run_gui():
     main_base_dir = tk.StringVar(value="C:/Media")
     picture_base_dir = tk.StringVar(value=str(PICTURE_BASE_DIR))
     video_base_dir = tk.StringVar(value=str(VIDEO_BASE_DIR))
+    sound_base_dir = tk.StringVar(value=str(SOUND_BASE_DIR))
     azza_reading_var = tk.StringVar(value="")
 
     def browse_main_dir():
@@ -247,6 +255,11 @@ def run_gui():
         folder = filedialog.askdirectory(title="Select Video Base Directory")
         if folder:
             video_base_dir.set(folder)
+
+    def browse_sound_dir():
+        folder = filedialog.askdirectory(title="Select Sound Base Directory")
+        if folder:
+            sound_base_dir.set(folder)
 
     def refresh_drives_root():
         nonlocal drives
@@ -340,8 +353,9 @@ def run_gui():
         for idx, (drive, volname, cam_number) in enumerate(selected_drives, start=1):
             image_files, image_bytes = scan_media_files(drive, IMAGE_EXTENSIONS)
             video_files, video_bytes = scan_media_files(drive, VIDEO_EXTENSIONS)
-            all_files = image_files + video_files
-            total_bytes = image_bytes + video_bytes
+            sound_files, sound_bytes = scan_media_files(drive, SOUND_EXTENSIONS)
+            all_files = image_files + video_files + sound_files
+            total_bytes = image_bytes + video_bytes + sound_bytes
             per_drive_stats.append({
                 "files": all_files,
                 "total_files": len(all_files),
@@ -415,7 +429,7 @@ def run_gui():
                         text=f"Total: {global_transferred_files}/{global_total_files} files, {format_size(global_transferred_bytes)}/{format_size(global_total_bytes)} ({global_percent:.1f}%)"
                     )
 
-            def transfer_one(idx, drive, picture_dest, video_dest, stat, cam_number):
+            def transfer_one(idx, drive, picture_dest, video_dest, sound_dest, stat, cam_number):
                 total_bytes = 0
                 files_done = 0
                 start_time = time.time()
@@ -428,6 +442,8 @@ def run_gui():
                         dest_path = picture_dest / file_path.name
                     elif ext in VIDEO_EXTENSIONS:
                         dest_path = video_dest / file_path.name
+                    elif ext in SOUND_EXTENSIONS:
+                        dest_path = sound_dest / file_path.name
                     else:
                         continue
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -455,9 +471,10 @@ def run_gui():
             for idx, (drive, volname, cam_number) in enumerate(selected_drives, start=1):
                 picture_dest = Path(picture_base_dir.get()) / f"cam{cam_number}"
                 video_dest = Path(video_base_dir.get()) / f"cam{cam_number}"
+                sound_dest = Path(sound_base_dir.get()) / f"cam{cam_number}"
                 t = threading.Thread(
                     target=transfer_one,
-                    args=(idx, drive, picture_dest, video_dest, per_drive_stats[idx-1], cam_number)
+                    args=(idx, drive, picture_dest, video_dest, sound_dest, per_drive_stats[idx-1], cam_number)
                 )
                 threads.append(t)
                 t.start()
@@ -484,6 +501,7 @@ def run_gui():
             main_base_dir.set(str(today_folder))
             picture_base_dir.set(str(today_folder / "Pictures"))
             video_base_dir.set(str(today_folder / "Videos"))
+            sound_base_dir.set(str(today_folder / "Sound"))
 
     def set_azza():
         base = Path(main_base_dir.get())
@@ -499,6 +517,7 @@ def run_gui():
         main_base_dir.set(str(base))
         picture_base_dir.set(str(base / "Pictures"))
         video_base_dir.set(str(base / "Videos"))
+        sound_base_dir.set(str(base / "Sound"))
         azza_reading_var.set("Azza")
 
     def set_reading():
@@ -515,6 +534,7 @@ def run_gui():
         main_base_dir.set(str(base))
         picture_base_dir.set(str(base / "Pictures"))
         video_base_dir.set(str(base / "Videos"))
+        sound_base_dir.set(str(base / "Sound"))
         azza_reading_var.set("Reading")
 
     def open_main_folder():
@@ -555,6 +575,13 @@ def run_gui():
     tk.Label(vid_frame, text="🎬 Videos Folder:", font=label_font, bg="#f4f6fa").pack(side=tk.LEFT)
     tk.Entry(vid_frame, textvariable=video_base_dir, width=36, font=entry_font).pack(side=tk.LEFT, padx=5)
     tk.Button(vid_frame, text="Browse", command=browse_video_dir, font=button_font, bg="#e0e7ff").pack(side=tk.LEFT)
+
+    # Sound folder selection
+    sound_frame = tk.Frame(root, bg="#f4f6fa")
+    sound_frame.pack(pady=2, fill=tk.X)
+    tk.Label(sound_frame, text="🔊 Sound Folder:", font=label_font, bg="#f4f6fa").pack(side=tk.LEFT)
+    tk.Entry(sound_frame, textvariable=sound_base_dir, width=36, font=entry_font).pack(side=tk.LEFT, padx=5)
+    tk.Button(sound_frame, text="Browse", command=browse_sound_dir, font=button_font, bg="#e0e7ff").pack(side=tk.LEFT)
 
     # Drive selection and transfer controls
     drives_frame = tk.LabelFrame(root, text="Select SD Cards to Transfer", font=label_font, bg="#f4f6fa", fg="#2d415a", bd=2, relief=tk.GROOVE)
