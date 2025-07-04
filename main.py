@@ -12,8 +12,12 @@ import queue
 import tkinter.ttk as ttk
 
 # Supported file extensions
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.cr2', '.cr3', '.nef', '.arw'}
-VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv'}
+IMAGE_EXTENSIONS = {
+    '.jpg', '.jpeg', '.png', '.cr2', '.cr3', '.nef', '.arw', '.raw', '.tif', '.tiff', '.heif', '.heic'
+}
+VIDEO_EXTENSIONS = {
+    '.mp4', '.mov', '.avi', '.mkv', '.mxf', '.mts', '.hevc'
+}
 
 # Volume labels mapped to camera names
 CAMERA_LABELS = {
@@ -43,10 +47,6 @@ def get_removable_drives():
         parts = line.split()
         if len(parts) < 2:
             continue
-        device_id = parts[0]
-        drive_type = parts[1]
-        size_str = parts[2] if len(parts) > 2 and parts[2].isdigit() else ""
-        # VolumeName is everything after Size (may be empty)
         volume_name = ""
         if len(parts) > 3:
             volume_name = " ".join(parts[3:])
