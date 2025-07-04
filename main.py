@@ -486,27 +486,36 @@ def run_gui():
             video_base_dir.set(str(today_folder / "Videos"))
 
     def set_azza():
+        base = Path(main_base_dir.get())
+        # If already ends with 'Azza', do nothing
+        if base.name == "Azza":
+            return
+        # If ends with 'Reading', replace with 'Azza'
+        if base.name == "Reading":
+            base = base.parent / "Azza"
+        else:
+            base = base / "Azza"
+        base.mkdir(parents=True, exist_ok=True)
+        main_base_dir.set(str(base))
+        picture_base_dir.set(str(base / "Pictures"))
+        video_base_dir.set(str(base / "Videos"))
         azza_reading_var.set("Azza")
-        update_main_folder_with_subfolder()
 
     def set_reading():
-        azza_reading_var.set("Reading")
-        update_main_folder_with_subfolder()
-
-    def update_main_folder_with_subfolder():
         base = Path(main_base_dir.get())
-        sub = azza_reading_var.get()
-        if sub:
-            new_main = base / sub
-            new_main.mkdir(parents=True, exist_ok=True)
-            main_base_dir.set(str(new_main))
-            picture_base_dir.set(str(new_main / "Pictures"))
-            video_base_dir.set(str(new_main / "Videos"))
+        # If already ends with 'Reading', do nothing
+        if base.name == "Reading":
+            return
+        # If ends with 'Azza', replace with 'Reading'
+        if base.name == "Azza":
+            base = base.parent / "Reading"
         else:
-            # Reset to just main if nothing chosen
-            main_base_dir.set(str(base))
-            picture_base_dir.set(str(base / "Pictures"))
-            video_base_dir.set(str(base / "Videos"))
+            base = base / "Reading"
+        base.mkdir(parents=True, exist_ok=True)
+        main_base_dir.set(str(base))
+        picture_base_dir.set(str(base / "Pictures"))
+        video_base_dir.set(str(base / "Videos"))
+        azza_reading_var.set("Reading")
 
     def open_main_folder():
         folder = main_base_dir.get()
