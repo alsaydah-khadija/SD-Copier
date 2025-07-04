@@ -198,7 +198,7 @@ def process_cameras_parallel(cancel_event, speed_callback, result_callback):
 def run_gui():
     root = tk.Tk()
     root.title("Camera SD Transfer Tool")
-    root.geometry("600x600")
+    root.geometry("800x800")  # Increased window size
     root.configure(bg="#f4f6fa")
     style_font = ("Segoe UI", 12)
     label_font = ("Segoe UI", 11, "bold")
@@ -225,6 +225,7 @@ def run_gui():
     transfer_thread = None
 
     drives = []
+    cam_drive_map = []  # <-- Use this instead of root.cam_drive_map
     main_base_dir = tk.StringVar(value="C:/Media")
     picture_base_dir = tk.StringVar(value=str(PICTURE_BASE_DIR))
     video_base_dir = tk.StringVar(value=str(VIDEO_BASE_DIR))
@@ -271,7 +272,42 @@ def run_gui():
         if idx in status_labels:
             status_labels[idx].config(text=f"cam{idx}: {msg}")
 
+    def get_unique_cam_folder(base_dir, prefix="cam"):
+        """
+        Returns a unique cam folder path (e.g., cam1, cam2, ...) under base_dir.
+        """
+        n = 1
+        while True:
+            folder = Path(base_dir) / f"{prefix}{n}"
+            if not folder.exists():
+                return folder, n
+            n += 1
+
+    def refresh_drives_frame():
+        nonlocal drives, cam_drive_map
+        drives = get_removable_drives()
+        for label in drive_labels:
+            label.destroy()
+        drive_labels.clear()
+        checkbox_vars.clear()
+        cam_drive_map.clear()
+        # Use unique cam numbers for each drive
+        used_cam_numbers = set()
+        for drive, volname, size_display in drives:
+            n = 1
+            while n in used_cam_numbers or (Path(picture_base_dir.get()) / f"cam{n}").exists() or (Path(video_base_dir.get()) / f"cam{n}").exists():
+                n += 1
+            used_cam_numbers.add(n)
+            label_text = f"cam{n} ({drive} - {volname} - {size_display})" if volname else f"cam{n} ({drive} - {size_display})"
+            var = tk.BooleanVar(value=True)
+            cb = tk.Checkbutton(drives_frame, text=label_text, variable=var, font=entry_font, bg="#f4f6fa")
+            cb.pack(anchor='w', padx=10)
+            drive_labels.append(cb)
+            checkbox_vars.append(var)
+            cam_drive_map.append((drive, volname, n))  # Store mapping for transfer
+
     def on_transfer():
+        nonlocal cam_drive_map
         global global_progress_bar, global_stats_label
         # Remove old labels
         for frame in label_frames:
@@ -285,8 +321,12 @@ def run_gui():
         transferred_labels.clear()
         percent_labels.clear()
 
-        # Get selected drives as (drive, volname) tuples
-        selected_drives = [(drive, volname) for var, (drive, volname, _) in zip(checkbox_vars, drives) if var.get()]
+        # Get selected drives as (drive, volname, cam_number) tuples
+        selected_drives = [
+            (drive, volname, cam_number)
+            for var, (drive, volname, cam_number) in zip(checkbox_vars, cam_drive_map)
+            if var.get()
+        ]
 
         # --- SCANNING INDICATOR ---
         scanning_label = tk.Label(root, text="Scanning files...", font=("Arial", 11, "italic"), fg="blue")
@@ -297,7 +337,7 @@ def run_gui():
         per_drive_stats = []
         global_total_files = 0
         global_total_bytes = 0
-        for idx, (drive, volname) in enumerate(selected_drives, start=1):
+        for idx, (drive, volname, cam_number) in enumerate(selected_drives, start=1):
             image_files, image_bytes = scan_media_files(drive, IMAGE_EXTENSIONS)
             video_files, video_bytes = scan_media_files(drive, VIDEO_EXTENSIONS)
             all_files = image_files + video_files
@@ -326,11 +366,11 @@ def run_gui():
         global_stats_label.pack()
 
         # --- PER DRIVE PROGRESS ---
-        for idx, (drive, volname) in enumerate(selected_drives, start=1):
+        for idx, (drive, volname, cam_number) in enumerate(selected_drives, start=1):
             frame = tk.Frame(root)
             frame.pack(pady=2)
             label_frames.append(frame)
-            label_text = f"cam{idx}: Transferring from {drive} - {volname}" if volname else f"cam{idx}: Transferring from {drive}"
+            label_text = f"cam{cam_number}: Transferring from {drive} - {volname}" if volname else f"cam{cam_number}: Transferring from {drive}"
             status_labels[idx] = tk.Label(frame, text=label_text, font=("Arial", 10))
             status_labels[idx].pack(side=tk.TOP, anchor='w')
             speed_labels[idx] = tk.Label(frame, text=f"cam{idx} speed: 0 MB/s", font=("Arial", 10))
@@ -375,7 +415,7 @@ def run_gui():
                         text=f"Total: {global_transferred_files}/{global_total_files} files, {format_size(global_transferred_bytes)}/{format_size(global_total_bytes)} ({global_percent:.1f}%)"
                     )
 
-            def transfer_one(idx, drive, picture_dest, video_dest, stat):
+            def transfer_one(idx, drive, picture_dest, video_dest, stat, cam_number):
                 total_bytes = 0
                 files_done = 0
                 start_time = time.time()
@@ -409,15 +449,15 @@ def run_gui():
                     update_progress(idx, files_done, stat['transferred_bytes'])
                 if not cancel_event.is_set():
                     eject_drive(drive)
-                    result_callback(idx, f"Transferred and ejected cam{idx}.")
+                    result_callback(idx, f"Transferred and ejected cam{cam_number}.")
 
             threads = []
-            for idx, (drive, volname) in enumerate(selected_drives, start=1):
-                picture_dest = Path(picture_base_dir.get()) / f"cam{idx}"
-                video_dest = Path(video_base_dir.get()) / f"cam{idx}"
+            for idx, (drive, volname, cam_number) in enumerate(selected_drives, start=1):
+                picture_dest = Path(picture_base_dir.get()) / f"cam{cam_number}"
+                video_dest = Path(video_base_dir.get()) / f"cam{cam_number}"
                 t = threading.Thread(
                     target=transfer_one,
-                    args=(idx, drive, picture_dest, video_dest, per_drive_stats[idx-1])
+                    args=(idx, drive, picture_dest, video_dest, per_drive_stats[idx-1], cam_number)
                 )
                 threads.append(t)
                 t.start()
@@ -531,22 +571,7 @@ def run_gui():
     )
     uncheck_btn.pack(anchor='e', pady=(4, 2), padx=8)
 
-    def refresh_drives_frame():
-        nonlocal drives
-        drives = get_removable_drives()
-        for label in drive_labels:
-            label.destroy()
-        drive_labels.clear()
-        checkbox_vars.clear()
-        for idx, (drive, volname, size_display) in enumerate(drives, start=1):
-            var = tk.BooleanVar(value=True)
-            label_text = f"cam{idx} ({drive} - {volname} - {size_display})" if volname else f"cam{idx} ({drive} - {size_display})"
-            cb = tk.Checkbutton(drives_frame, text=label_text, variable=var, font=entry_font, bg="#f4f6fa")
-            cb.pack(anchor='w', padx=10)
-            drive_labels.append(cb)
-            checkbox_vars.append(var)
 
-    # ...existing code...
 
     tk.Button(root, text="🔄 Refresh SD Cards", command=refresh_drives_frame, font=button_font, bg="#fef9c3").pack(pady=5)
     tk.Button(root, text="🚀 Start Transfer", command=on_transfer, font=button_font, bg="#bbf7d0").pack(pady=5)
