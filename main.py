@@ -26,7 +26,8 @@ CAMERA_LABELS = {
     "CANONR8": "Canon R8",
     "CANONR6II": "Canon R6 II"
 }
-
+global_progress_bar = None
+global_stats_label = None
 # Target folders
 PICTURE_BASE_DIR = Path("C:/Media/Pictures")
 VIDEO_BASE_DIR = Path("C:/Media/Videos")
@@ -47,6 +48,10 @@ def get_removable_drives():
         parts = line.split()
         if len(parts) < 2:
             continue
+        device_id = parts[0]
+        drive_type = parts[1]
+        size_str = parts[2] if len(parts) > 2 and parts[2].isdigit() else ""
+        # VolumeName is everything after Size (may be empty)
         volume_name = ""
         if len(parts) > 3:
             volume_name = " ".join(parts[3:])
@@ -267,6 +272,7 @@ def run_gui():
             status_labels[idx].config(text=f"cam{idx}: {msg}")
 
     def on_transfer():
+        global global_progress_bar, global_stats_label
         # Remove old labels
         for frame in label_frames:
             frame.destroy()
@@ -362,10 +368,12 @@ def run_gui():
                 global_transferred_files = sum(stat['transferred_files'] for stat in per_drive_stats)
                 global_transferred_bytes = sum(stat['transferred_bytes'] for stat in per_drive_stats)
                 global_percent = (global_transferred_bytes / global_total_bytes * 100) if global_total_bytes else 0
-                global_progress_bar['value'] = global_percent
-                global_stats_label.config(
-                    text=f"Total: {global_transferred_files}/{global_total_files} files, {format_size(global_transferred_bytes)}/{format_size(global_total_bytes)} ({global_percent:.1f}%)"
-                )
+                if global_progress_bar is not None:
+                    global_progress_bar['value'] = global_percent
+                if global_stats_label is not None:
+                    global_stats_label.config(
+                        text=f"Total: {global_transferred_files}/{global_total_files} files, {format_size(global_transferred_bytes)}/{format_size(global_total_bytes)} ({global_percent:.1f}%)"
+                    )
 
             def transfer_one(idx, drive, picture_dest, video_dest, stat):
                 total_bytes = 0

@@ -41,3 +41,5 @@ Python 3.8+ (if not using the portable .exe)
 Standard Windows tools (PowerShell, WMIC)
 License
 MIT License
+
+pyinstaller --onefile --noconsole main.py
