@@ -8,6 +8,8 @@ from tkinter import messagebox
 from tkinter import filedialog
 import threading
 import time
+import queue
+import tkinter.ttk as ttk
 
 # Supported file extensions
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.cr2', '.cr3', '.nef', '.arw'}
@@ -100,6 +102,34 @@ def eject_drive(drive_letter):
             pass
 
 
+def scan_media_files(drive, extensions):
+    """Scan drive for files with given extensions. Returns (file_list, total_size_bytes)."""
+    file_list = []
+    total_size = 0
+    for root, _, files in os.walk(Path(drive + "/")):
+        for file in files:
+            ext = Path(file).suffix.lower()
+            if ext in extensions:
+                path = Path(root) / file
+                file_list.append(path)
+                try:
+                    total_size += os.path.getsize(path)
+                except Exception:
+                    pass
+    return file_list, total_size
+
+
+def format_size(num_bytes):
+    if num_bytes >= 1024**3:
+        return f"{num_bytes/1024**3:.2f} GB"
+    elif num_bytes >= 1024**2:
+        return f"{num_bytes/1024**2:.2f} MB"
+    elif num_bytes >= 1024:
+        return f"{num_bytes/1024:.2f} KB"
+    else:
+        return f"{num_bytes} B"
+
+
 def transfer_sd_card(idx, drive, picture_dest, video_dest, cancel_event, speed_callback, result_callback):
     total_bytes = 0
     start_time = time.time()
@@ -177,6 +207,15 @@ def run_gui():
     checkbox_vars = []
     drive_labels = []
 
+    progress_bars = {}
+    file_count_labels = {}
+    size_labels = {}
+    transferred_labels = {}
+    percent_labels = {}
+
+    global_progress_bar = None
+    global_stats_label = None
+
     cancel_event = threading.Event()
     transfer_thread = None
 
@@ -234,29 +273,143 @@ def run_gui():
         status_labels.clear()
         speed_labels.clear()
         label_frames.clear()
+        progress_bars.clear()
+        file_count_labels.clear()
+        size_labels.clear()
+        transferred_labels.clear()
+        percent_labels.clear()
 
         # Get selected drives as (drive, volname) tuples
         selected_drives = [(drive, volname) for var, (drive, volname, _) in zip(checkbox_vars, drives) if var.get()]
+
+        # --- SCANNING INDICATOR ---
+        scanning_label = tk.Label(root, text="Scanning files...", font=("Arial", 11, "italic"), fg="blue")
+        scanning_label.pack()
+        root.update()
+
+        # Scan all drives for files and sizes
+        per_drive_stats = []
+        global_total_files = 0
+        global_total_bytes = 0
+        for idx, (drive, volname) in enumerate(selected_drives, start=1):
+            image_files, image_bytes = scan_media_files(drive, IMAGE_EXTENSIONS)
+            video_files, video_bytes = scan_media_files(drive, VIDEO_EXTENSIONS)
+            all_files = image_files + video_files
+            total_bytes = image_bytes + video_bytes
+            per_drive_stats.append({
+                "files": all_files,
+                "total_files": len(all_files),
+                "total_bytes": total_bytes,
+                "transferred_files": 0,
+                "transferred_bytes": 0,
+            })
+            global_total_files += len(all_files)
+            global_total_bytes += total_bytes
+
+        scanning_label.destroy()
+
+        # --- GLOBAL PROGRESS BAR ---
+        global global_progress_bar, global_stats_label
+        if global_progress_bar:
+            global_progress_bar.destroy()
+        if global_stats_label:
+            global_stats_label.destroy()
+        global_progress_bar = ttk.Progressbar(root, length=400, mode='determinate')
+        global_progress_bar.pack(pady=4)
+        global_stats_label = tk.Label(root, text=f"Total: {global_total_files} files, {format_size(global_total_bytes)}", font=("Arial", 10, "bold"))
+        global_stats_label.pack()
+
+        # --- PER DRIVE PROGRESS ---
         for idx, (drive, volname) in enumerate(selected_drives, start=1):
             frame = tk.Frame(root)
             frame.pack(pady=2)
             label_frames.append(frame)
             label_text = f"cam{idx}: Transferring from {drive} - {volname}" if volname else f"cam{idx}: Transferring from {drive}"
             status_labels[idx] = tk.Label(frame, text=label_text, font=("Arial", 10))
-            status_labels[idx].pack(side=tk.LEFT)
+            status_labels[idx].pack(side=tk.TOP, anchor='w')
             speed_labels[idx] = tk.Label(frame, text=f"cam{idx} speed: 0 MB/s", font=("Arial", 10))
-            speed_labels[idx].pack(side=tk.LEFT, padx=10)
+            speed_labels[idx].pack(side=tk.TOP, anchor='w')
+            size_labels[idx] = tk.Label(frame, text=f"Total: {per_drive_stats[idx-1]['total_files']} files, {format_size(per_drive_stats[idx-1]['total_bytes'])}", font=("Arial", 10))
+            size_labels[idx].pack(side=tk.TOP, anchor='w')
+            transferred_labels[idx] = tk.Label(frame, text=f"Transferred: 0 files, 0 MB", font=("Arial", 10))
+            transferred_labels[idx].pack(side=tk.TOP, anchor='w')
+            percent_labels[idx] = tk.Label(frame, text="0%", font=("Arial", 10))
+            percent_labels[idx].pack(side=tk.LEFT)
+            pb = ttk.Progressbar(frame, length=200, mode='determinate')
+            pb.pack(side=tk.LEFT, padx=10)
+            progress_bars[idx] = pb
+            file_count_labels[idx] = tk.Label(frame, text="0/0 files", font=("Arial", 10))
+            file_count_labels[idx].pack(side=tk.LEFT)
 
         cancel_event.clear()
 
+        # --- TRANSFER TASK ---
         def task():
+            global_transferred_files = 0
+            global_transferred_bytes = 0
+
+            def update_progress(idx, files_done, bytes_done):
+                # Per drive
+                total_files = per_drive_stats[idx-1]['total_files']
+                total_bytes = per_drive_stats[idx-1]['total_bytes']
+                percent = (bytes_done / total_bytes * 100) if total_bytes else 0
+                progress_bars[idx]['value'] = percent
+                percent_labels[idx].config(text=f"{percent:.1f}%")
+                transferred_labels[idx].config(text=f"Transferred: {files_done} files, {format_size(bytes_done)}")
+                file_count_labels[idx].config(text=f"{files_done}/{total_files} files")
+                # Global
+                nonlocal global_transferred_files, global_transferred_bytes
+                global_transferred_files = sum(stat['transferred_files'] for stat in per_drive_stats)
+                global_transferred_bytes = sum(stat['transferred_bytes'] for stat in per_drive_stats)
+                global_percent = (global_transferred_bytes / global_total_bytes * 100) if global_total_bytes else 0
+                global_progress_bar['value'] = global_percent
+                global_stats_label.config(
+                    text=f"Total: {global_transferred_files}/{global_total_files} files, {format_size(global_transferred_bytes)}/{format_size(global_total_bytes)} ({global_percent:.1f}%)"
+                )
+
+            def transfer_one(idx, drive, picture_dest, video_dest, stat):
+                total_bytes = 0
+                files_done = 0
+                start_time = time.time()
+                for file_path in stat['files']:
+                    if cancel_event.is_set():
+                        result_callback(idx, "Transfer cancelled.")
+                        return
+                    ext = file_path.suffix.lower()
+                    if ext in IMAGE_EXTENSIONS:
+                        dest_path = picture_dest / file_path.name
+                    elif ext in VIDEO_EXTENSIONS:
+                        dest_path = video_dest / file_path.name
+                    else:
+                        continue
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    timestamp = datetime.now().strftime("%d-%m-%Y-%H")
+                    dest_path = dest_path.parent / f"{dest_path.stem}_{timestamp}{dest_path.suffix}"
+                    shutil.copy2(file_path, dest_path)
+                    try:
+                        size = os.path.getsize(file_path)
+                        total_bytes += size
+                        stat['transferred_bytes'] += size
+                        stat['transferred_files'] += 1
+                    except Exception:
+                        pass
+                    files_done += 1
+                    # Update transfer speed
+                    elapsed = time.time() - start_time
+                    speed = total_bytes / elapsed if elapsed > 0 else 0
+                    speed_callback(idx, speed)
+                    update_progress(idx, files_done, stat['transferred_bytes'])
+                if not cancel_event.is_set():
+                    eject_drive(drive)
+                    result_callback(idx, f"Transferred and ejected cam{idx}.")
+
             threads = []
             for idx, (drive, volname) in enumerate(selected_drives, start=1):
                 picture_dest = Path(picture_base_dir.get()) / f"cam{idx}"
                 video_dest = Path(video_base_dir.get()) / f"cam{idx}"
                 t = threading.Thread(
-                    target=transfer_sd_card,
-                    args=(idx, drive, picture_dest, video_dest, cancel_event, speed_callback, result_callback)
+                    target=transfer_one,
+                    args=(idx, drive, picture_dest, video_dest, per_drive_stats[idx-1])
                 )
                 threads.append(t)
                 t.start()
