@@ -510,6 +510,27 @@ def run_gui():
     # Drive selection and transfer controls
     drives_frame = tk.LabelFrame(root, text="Select SD Cards to Transfer", font=label_font, bg="#f4f6fa", fg="#2d415a", bd=2, relief=tk.GROOVE)
     drives_frame.pack(pady=10, fill=tk.X, padx=10)
+
+    # --- Add Uncheck All Button (moved and styled) ---
+    def uncheck_all_sd_cards():
+        for var in checkbox_vars:
+            var.set(False)
+
+    # Place Uncheck All button at the top of drives_frame
+    uncheck_btn = tk.Button(
+        drives_frame,
+        text="Uncheck All",
+        command=uncheck_all_sd_cards,
+        font=button_font,
+        bg="#fca5a5",  # Light red for visibility
+        fg="#7f1d1d",  # Dark red text
+        relief=tk.RAISED,
+        bd=2,
+        padx=10,
+        pady=2
+    )
+    uncheck_btn.pack(anchor='e', pady=(4, 2), padx=8)
+
     def refresh_drives_frame():
         nonlocal drives
         drives = get_removable_drives()
@@ -524,6 +545,8 @@ def run_gui():
             cb.pack(anchor='w', padx=10)
             drive_labels.append(cb)
             checkbox_vars.append(var)
+
+    # ...existing code...
 
     tk.Button(root, text="🔄 Refresh SD Cards", command=refresh_drives_frame, font=button_font, bg="#fef9c3").pack(pady=5)
     tk.Button(root, text="🚀 Start Transfer", command=on_transfer, font=button_font, bg="#bbf7d0").pack(pady=5)
