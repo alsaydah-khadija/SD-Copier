@@ -35,9 +35,21 @@ global_stats_label = None
 PICTURE_BASE_DIR = Path("C:/Media/Pictures")
 VIDEO_BASE_DIR = Path("C:/Media/Videos")
 SOUND_BASE_DIR = Path("C:/Media/Sound")
+test_mode_env = True
 
-
-def get_removable_drives():
+def get_removable_drives(test_mode=False):
+    """
+    Returns a list of removable drives.
+    If test_mode is True, returns 4 sample SD cards for interface testing.
+    """
+    if test_mode:
+        # Return 4 fake SD cards for testing the interface
+        return [
+            ("E:", "CANONR", "32.0 GB (used: 10.0 GB)"),
+            ("F:", "CANON90D", "64.0 GB (used: 20.0 GB)"),
+            ("G:", "CANONR8", "128.0 GB (used: 50.0 GB)"),
+            ("H:", "CANONR6II", "256.0 GB (used: 100.0 GB)"),
+        ]
     drives = []
     output = subprocess.check_output(
         'wmic logicaldisk get DeviceID,DriveType,Size,VolumeName', shell=True
@@ -298,7 +310,7 @@ def run_gui():
 
     def refresh_drives_frame():
         nonlocal drives, cam_drive_map
-        drives = get_removable_drives()
+        drives = get_removable_drives(test_mode=test_mode_env)
         for label in drive_labels:
             label.destroy()
         drive_labels.clear()
