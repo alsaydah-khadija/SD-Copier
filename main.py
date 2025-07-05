@@ -11,6 +11,7 @@ import time
 import queue
 import tkinter.ttk as ttk
 from PIL import Image, ImageTk 
+from remove_sd_files import remove_all_files_from_sd
 # Supported file extensions
 IMAGE_EXTENSIONS = {
     '.jpg', '.jpeg', '.png', '.cr2', '.cr3', '.nef', '.arw', '.raw', '.tif', '.tiff', '.heif', '.heic'
@@ -651,9 +652,63 @@ def run_gui():
 
 
 
-    tk.Button(root, text="🔄 Refresh SD Cards", command=refresh_drives_frame, font=button_font, bg="#fef9c3").pack(pady=5)
-    tk.Button(root, text="🚀 Start Transfer", command=on_transfer, font=button_font, bg="#bbf7d0").pack(pady=5)
-    tk.Button(root, text="⏹️ Cancel", command=on_cancel, font=button_font, bg="#fecaca").pack(pady=5)
+    # --- Bottom Buttons in a Horizontal Frame ---
+    bottom_btn_frame = tk.Frame(root, bg="#f4f6fa")
+    bottom_btn_frame.pack(pady=5)
+
+    tk.Button(
+        bottom_btn_frame,
+        text="🔄 Refresh SD Cards",
+        command=refresh_drives_frame,
+        font=button_font,
+        bg="#fef9c3"
+    ).pack(side=tk.LEFT, padx=6)
+
+    tk.Button(
+        bottom_btn_frame,
+        text="🚀 Start Transfer",
+        command=on_transfer,
+        font=button_font,
+        bg="#bbf7d0"
+    ).pack(side=tk.LEFT, padx=6)
+
+    tk.Button(
+        bottom_btn_frame,
+        text="⏹️ Cancel",
+        command=on_cancel,
+        font=button_font,
+        bg="#fecaca"
+    ).pack(side=tk.LEFT, padx=6)
+
+    tk.Button(
+        bottom_btn_frame,
+        text="🗑️ Remove All Files from SD Cards",
+        command=lambda: remove_all_files_from_sd(
+            root,
+            cards_frame,
+            label_frames,
+            status_labels,
+            progress_bars,
+            file_count_labels,
+            size_labels,
+            transferred_labels,
+            percent_labels,
+            checkbox_vars,
+            cam_drive_map,
+            scan_media_files,
+            IMAGE_EXTENSIONS,
+            VIDEO_EXTENSIONS,
+            SOUND_EXTENSIONS,
+            cancel_event,
+            eject_drive,
+            global_progress_bar,
+            global_stats_label,
+            ttk
+        ),
+        font=button_font,
+        bg="#fee2e2",
+        fg="#b91c1c"
+    ).pack(side=tk.LEFT, padx=6)
 
     # --- Horizontal SD Card Progress Cards with Scrollbar ---
     # Create a canvas with a horizontal scrollbar for SD card progress cards
