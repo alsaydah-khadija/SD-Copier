@@ -36,7 +36,7 @@ global_stats_label = None
 PICTURE_BASE_DIR = Path("C:/Media/Pictures")
 VIDEO_BASE_DIR = Path("C:/Media/Videos")
 SOUND_BASE_DIR = Path("C:/Media/Sound")
-test_mode_env = True
+test_mode_env = False
 
 def get_removable_drives(test_mode=False):
     """
