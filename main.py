@@ -10,8 +10,7 @@ import threading
 import time
 import queue
 import tkinter.ttk as ttk
-from PIL import Image, ImageTk  # <-- Add this line
-
+from PIL import Image, ImageTk 
 # Supported file extensions
 IMAGE_EXTENSIONS = {
     '.jpg', '.jpeg', '.png', '.cr2', '.cr3', '.nef', '.arw', '.raw', '.tif', '.tiff', '.heif', '.heic'
@@ -234,7 +233,18 @@ def run_gui():
 
     # Load and display the logo image on the top right
     try:
-        logo_img = Image.open("assets/logo.jpg")  # Make sure the image is named 'logo.jpg' and is in the same folder
+        import sys
+        import os
+
+        if getattr(sys, 'frozen', False):
+            # Running in a bundle
+            base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
+        else:
+            # Running in normal Python
+            base_path = os.path.abspath(".")
+
+        logo_path = os.path.join(base_path, "assets", "logo.jpg")
+        logo_img = Image.open(logo_path)
         logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
         logo_photo = ImageTk.PhotoImage(logo_img)
         logo_label = tk.Label(top_frame, image=logo_photo, bg="#f4f6fa")
