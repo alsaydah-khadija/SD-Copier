@@ -10,6 +10,7 @@ import threading
 import time
 import queue
 import tkinter.ttk as ttk
+from PIL import Image, ImageTk  # <-- Add this line
 
 # Supported file extensions
 IMAGE_EXTENSIONS = {
@@ -225,6 +226,23 @@ def run_gui():
     button_font = ("Segoe UI", 11, "bold")
     pad = {'padx': 8, 'pady': 6}
 
+    # --- Add Logo on Top Right ---
+    top_frame = tk.Frame(root, bg="#f4f6fa")
+    top_frame.pack(fill=tk.X, pady=(8, 0))
+
+    tk.Label(top_frame, text="📸 Camera SD Transfer Utility", font=("Segoe UI", 18, "bold"), bg="#f4f6fa", fg="#2d415a").pack(side=tk.LEFT, padx=12)
+
+    # Load and display the logo image on the top right
+    try:
+        logo_img = Image.open("assets/logo.jpg")  # Make sure the image is named 'logo.jpg' and is in the same folder
+        logo_img = logo_img.resize((64, 64), Image.Resampling.LANCZOS)
+        logo_photo = ImageTk.PhotoImage(logo_img)
+        logo_label = tk.Label(top_frame, image=logo_photo, bg="#f4f6fa")
+        logo_label.image = logo_photo  # Keep a reference
+        logo_label.pack(side=tk.RIGHT, padx=12)
+    except Exception as e:
+        print("Logo not found or failed to load:", e)
+
     status_labels = {}
     speed_labels = {}
     label_frames = []
@@ -334,12 +352,14 @@ def run_gui():
     def on_transfer():
         nonlocal cam_drive_map
         global global_progress_bar, global_stats_label
-        # Remove old labels
+        # Remove old labels and cards
         for frame in label_frames:
             frame.destroy()
+        label_frames.clear()
+        for widget in cards_frame.winfo_children():
+            widget.destroy()
         status_labels.clear()
         speed_labels.clear()
-        label_frames.clear()
         progress_bars.clear()
         file_count_labels.clear()
         size_labels.clear()
@@ -391,27 +411,28 @@ def run_gui():
         global_stats_label = tk.Label(root, text=f"Total: {global_total_files} files, {format_size(global_total_bytes)}", font=("Arial", 10, "bold"))
         global_stats_label.pack()
 
-        # --- PER DRIVE PROGRESS ---
+        # --- PER DRIVE PROGRESS (as horizontal cards) ---
         for idx, (drive, volname, cam_number) in enumerate(selected_drives, start=1):
-            frame = tk.Frame(root)
-            frame.pack(pady=2)
-            label_frames.append(frame)
-            label_text = f"cam{cam_number}: Transferring from {drive} - {volname}" if volname else f"cam{cam_number}: Transferring from {drive}"
-            status_labels[idx] = tk.Label(frame, text=label_text, font=("Arial", 10))
-            status_labels[idx].pack(side=tk.TOP, anchor='w')
-            speed_labels[idx] = tk.Label(frame, text=f"cam{idx} speed: 0 MB/s", font=("Arial", 10))
-            speed_labels[idx].pack(side=tk.TOP, anchor='w')
-            size_labels[idx] = tk.Label(frame, text=f"Total: {per_drive_stats[idx-1]['total_files']} files, {format_size(per_drive_stats[idx-1]['total_bytes'])}", font=("Arial", 10))
-            size_labels[idx].pack(side=tk.TOP, anchor='w')
-            transferred_labels[idx] = tk.Label(frame, text=f"Transferred: 0 files, 0 MB", font=("Arial", 10))
-            transferred_labels[idx].pack(side=tk.TOP, anchor='w')
-            percent_labels[idx] = tk.Label(frame, text="0%", font=("Arial", 10))
-            percent_labels[idx].pack(side=tk.LEFT)
-            pb = ttk.Progressbar(frame, length=200, mode='determinate')
-            pb.pack(side=tk.LEFT, padx=10)
+            card = tk.Frame(cards_frame, bg="#fff", bd=2, relief=tk.RIDGE, padx=10, pady=8)
+            card.pack(side=tk.LEFT, padx=8, pady=4)
+            label_frames.append(card)
+            label_text = f"cam{cam_number}: {drive} - {volname}" if volname else f"cam{cam_number}: {drive}"
+            tk.Label(card, text=label_text, font=("Arial", 10, "bold"), bg="#fff", fg="#2d415a").pack(anchor='w')
+            speed_labels[idx] = tk.Label(card, text=f"Speed: 0 MB/s", font=("Arial", 9), bg="#fff")
+            speed_labels[idx].pack(anchor='w')
+            size_labels[idx] = tk.Label(card, text=f"Total: {per_drive_stats[idx-1]['total_files']} files, {format_size(per_drive_stats[idx-1]['total_bytes'])}", font=("Arial", 9), bg="#fff")
+            size_labels[idx].pack(anchor='w')
+            transferred_labels[idx] = tk.Label(card, text=f"Transferred: 0 files, 0 MB", font=("Arial", 9), bg="#fff")
+            transferred_labels[idx].pack(anchor='w')
+            percent_labels[idx] = tk.Label(card, text="0%", font=("Arial", 9), bg="#fff")
+            percent_labels[idx].pack(anchor='w')
+            pb = ttk.Progressbar(card, length=160, mode='determinate')
+            pb.pack(anchor='w', pady=(2, 0))
             progress_bars[idx] = pb
-            file_count_labels[idx] = tk.Label(frame, text="0/0 files", font=("Arial", 10))
-            file_count_labels[idx].pack(side=tk.LEFT)
+            file_count_labels[idx] = tk.Label(card, text="0/0 files", font=("Arial", 9), bg="#fff")
+            file_count_labels[idx].pack(anchor='w')
+            status_labels[idx] = tk.Label(card, text="", font=("Arial", 9, "italic"), bg="#fff", fg="#64748b")
+            status_labels[idx].pack(anchor='w')
 
         cancel_event.clear()
 
@@ -625,7 +646,35 @@ def run_gui():
     tk.Button(root, text="🚀 Start Transfer", command=on_transfer, font=button_font, bg="#bbf7d0").pack(pady=5)
     tk.Button(root, text="⏹️ Cancel", command=on_cancel, font=button_font, bg="#fecaca").pack(pady=5)
 
+    # --- Horizontal SD Card Progress Cards with Scrollbar ---
+    # Create a canvas with a horizontal scrollbar for SD card progress cards
+    cards_canvas = tk.Canvas(root, bg="#f4f6fa", highlightthickness=0, height=170)
+    cards_scrollbar = tk.Scrollbar(root, orient="horizontal", command=cards_canvas.xview)
+    cards_canvas.configure(xscrollcommand=cards_scrollbar.set)
+    cards_canvas.pack(fill=tk.X, padx=10, pady=(0, 8))
+    cards_scrollbar.pack(fill=tk.X, padx=10, pady=(0, 8))
+
+    # Frame inside the canvas to hold the SD card progress cards
+    cards_frame = tk.Frame(cards_canvas, bg="#f4f6fa")
+    cards_canvas.create_window((0, 0), window=cards_frame, anchor="nw")
+
+    def update_cards_scrollregion(event=None):
+        cards_canvas.configure(scrollregion=cards_canvas.bbox("all"))
+
+    cards_frame.bind("<Configure>", update_cards_scrollregion)
+
     refresh_drives_frame()
+
+    # --- Footer ---
+    footer = tk.Label(
+        root,
+        text="Prepared By S.Khadeeja Dev Team",
+        font=("Segoe UI", 10, "italic"),
+        bg="#f4f6fa",
+        fg="#64748b"
+    )
+    footer.pack(side=tk.BOTTOM, pady=6)
+
     root.mainloop()
 
 
