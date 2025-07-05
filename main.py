@@ -577,7 +577,6 @@ def run_gui():
         else:
             messagebox.showerror("Error", f"Folder does not exist: {folder}")
 
-    tk.Label(root, text="📸 Camera SD Transfer Utility", font=("Segoe UI", 18, "bold"), bg="#f4f6fa", fg="#2d415a").pack(pady=12)
 
     # Azza/Reading selection
     azza_reading_frame = tk.Frame(root, bg="#f4f6fa")
